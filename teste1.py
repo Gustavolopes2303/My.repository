@@ -5,137 +5,129 @@ nome = st.text_input("Digite seu nome")
 if nome: 
    st.write(nome.upper())
 import streamlit as st
+import pandas as pd
 import random
-from datetime import datetime
+import matplotlib.pyplot as plt
+import numpy as np
 
-# --- Dicionários de Dados (Complexidade de Dados) ---
+# --- DADOS DO SISTEMA: TERMOS E SIMULAÇÃO DE JURISPRUDÊNCIA ---
 
-# Citações categorizadas por "humor"
-DADOS_CITACOES = {
-    "SABIO": [
-        "A simplicidade é o último grau de sofisticação.",
-        "O que não te mata, te fortalece, a menos que mate.",
-        "A vida é o que acontece enquanto você está ocupado fazendo outros planos.",
-        "A verdadeira sabedoria está em reconhecer a própria ignorância."
-    ],
-    "IRRITADO": [
-        "Por que você está me incomodando agora? Volte mais tarde.",
-        "A pressa é inimiga da perfeição. E do meu bom humor.",
-        "Se o seu problema tem solução, pare de se preocupar; se não tem, de que adianta?",
-        "Tudo o que você pode imaginar é real. E provavelmente muito chato."
-    ],
-    "FILOSOFICO": [
-        "Somos todos prisioneiros de nosso próprio modo de ver as coisas.",
-        "O mundo que criamos é um produto do nosso pensamento.",
-        "Existir é resistir.",
-        "Não tentes ser bem-sucedido, tenta antes ser um valor."
-    ]
+# Termos Jurídicos que serão contados
+TERMOS_JURIDICOS = [
+    "Dano Moral", "Indenização", "Recurso", "Petição", "Contrato",
+    "Sentença", "Jurisprudência", "Reconvenção", "Precedente", "Citação"
+]
+
+# Definição de "Áreas do Direito" e como elas influenciam a frequência dos termos
+# O valor é o FATOR que será multiplicado pela frequência base (para simular prevalência)
+AREAS_DO_DIREITO = {
+    "Direito do Consumidor": {
+        "Dano Moral": 3, "Indenização": 2, "Contrato": 1.5, "Petição": 1, "Recurso": 0.8
+    },
+    "Direito Civil (Contratos)": {
+        "Contrato": 3, "Reconvenção": 2, "Sentença": 1.5, "Indenização": 0.5, "Petição": 1
+    },
+    "Direito Processual": {
+        "Recurso": 3, "Petição": 2.5, "Sentença": 2, "Precedente": 1.5, "Citação": 1
+    }
 }
 
-# Autores categorizados por "humor"
-AUTORES_IRÔNICOS = {
-    "SABIO": [
-        "Um Esquilo Meditando",
-        "A Lua Cheia",
-        "O Café que Finalmente Aqueceu"
-    ],
-    "IRRITADO": [
-        "Um Desenvolvedor que Esqueceu de Commitar",
-        "A Máquina de Café em Crise Existencial",
-        "O Espírito da Segunda-feira às 8h"
-    ],
-    "FILOSOFICO": [
-        "A Última Fatia de Pizza (ponderando seu destino)",
-        "O Barulho da Chuva em Outra Dimensão",
-        "Uma Meia Solitária na Lavanderia (buscando sentido)"
-    ]
-}
+# --- FUNÇÃO COMPLEXA: SIMULAÇÃO DE PROCESSAMENTO DE TEXTO ---
 
-# --- Lógica de Humor Temporal (Complexidade Lógica) ---
+@st.cache_data
+def simular_analise_frequencia(area_selecionada):
+    """
+    Simula o processamento de um grande corpo de jurisprudência
+    e retorna a contagem de termos baseada na área do direito selecionada.
+    """
+    # 1. Frequência Base (Comum a todas as áreas - ruído)
+    frequencia_base = {termo: random.randint(50, 150) for termo in TERMOS_JURIDICOS}
+    
+    # 2. Aplica o Fator de Prevalência da Área Selecionada
+    frequencia_final = frequencia_base.copy()
+    fator_previo = AREAS_DO_DIREITO.get(area_selecionada, {})
+    
+    for termo, fator in fator_previo.items():
+        # Aumenta a contagem de termos relevantes para a área (complexidade)
+        aumento = int(frequencia_base[termo] * fator * np.random.uniform(1.5, 2.5))
+        frequencia_final[termo] += aumento
+    
+    # 3. Cria o DataFrame para Visualização
+    df = pd.DataFrame(
+        list(frequencia_final.items()), 
+        columns=['Termo', 'Frequência']
+    ).sort_values(by='Frequência', ascending=False).reset_index(drop=True)
+    
+    return df
 
-def definir_humor_do_oraculo():
-    """Define o humor do Oráculo baseado na hora e no dia."""
-    agora = datetime.now()
-    hora = agora.hour
-    dia_da_semana = agora.weekday() # 0=Segunda, 6=Domingo
-
-    humor = "FILOSOFICO" # Humor padrão
-
-    if dia_da_semana < 5: # Dias úteis (Segunda a Sexta)
-        if 6 <= hora < 10:
-            humor = "SABIO" # Conselhos para começar o dia
-        elif 10 <= hora < 16:
-            humor = "IRRITADO" # Estresse do trabalho/rotina
-        elif 16 <= hora < 20:
-            humor = "FILOSOFICO" # Ponderando o fim do dia
-    else: # Fim de semana (Sábado e Domingo)
-        if 8 <= hora < 16:
-            humor = "SABIO" # Calma do fim de semana
-        else:
-            humor = "FILOSOFICO" # Pensamentos noturnos
-
-    return humor
-
-# --- Estrutura e Layout Streamlit (Complexidade de Interface) ---
+# --- ESTRUTURA E LAYOUT STREAMLIT ---
 
 st.set_page_config(
-    page_title="Oráculo Temporal de Conselhos ✨",
-    page_icon="🔮",
-    layout="wide" # Layout expandido
+    page_title="Streamlit Lexicographer ⚖️",
+    page_icon="📜",
+    layout="wide"
 )
 
-st.title("🔮 Oráculo Temporal de Conselhos")
-st.markdown("Meu humor e conselho mudam conforme a hora do dia e o dia da semana... Seja cauteloso!")
+st.title("⚖️ Lexicographer: Análise de Frequência de Termos Jurídicos")
+st.markdown("Simulação da análise de jurisprudência. Escolha a área para ver a prevalência dos termos.")
 
-# Container para organizar o input e o resultado
-col1, col2 = st.columns([1, 2]) # Duas colunas: uma para o input, duas para o output
+# --- ENTRADA DE DADOS E CONTROLES ---
+col_select, col_metric = st.columns([1, 2])
 
-with col1:
-    st.subheader("Quem Ousa Consultar?")
-    nome = st.text_input("Digite seu nome, viajante:", max_chars=30)
+with col_select:
+    st.subheader("Configurações de Análise")
+    area_selecionada = st.selectbox(
+        "Selecione a Área do Direito para Análise:",
+        list(AREAS_DO_DIREITO.keys())
+    )
+
+# --- PROCESSAMENTO E GERAÇÃO DO DATAFRAME ---
+# A função é chamada aqui, e o cache garante que não recalcule se a área não mudar
+df_frequencia = simular_analise_frequencia(area_selecionada)
+
+# --- RESULTADOS MÉTRICOS E GERAIS ---
+total_termos = df_frequencia['Frequência'].sum()
+termo_mais_frequente = df_frequencia.iloc[0]['Termo']
+frequencia_top = df_frequencia.iloc[0]['Frequência']
+
+with col_metric:
+    st.subheader("Visão Geral da Análise")
+    col_m1, col_m2 = st.columns(2)
     
-    if st.button("Consultar o Oráculo!", use_container_width=True):
-        if not nome:
-            st.error("O Oráculo não fala com anônimos!")
-        else:
-            # Estado para acionar a exibição no col2
-            st.session_state['consultado'] = True
-            st.session_state['nome'] = nome
+    col_m1.metric(label="Total de Termos Analisados (Simulado)", value=f"{total_termos:,}", delta="Total de ocorrências")
+    col_m2.metric(label="Termo Mais Frequente", value=termo_mais_frequente, delta=f"{frequencia_top} ocorrências")
+
+st.markdown("---")
+
+# --- VISUALIZAÇÃO DE DADOS ---
+st.header(f"Frequência de Termos em **{area_selecionada}**")
+
+col_graph, col_data = st.columns([2, 1])
+
+with col_graph:
+    st.subheader("Gráfico de Frequência (Top 10)")
     
-    # Exibe o humor atual do Oráculo em tempo real (DEBUG/Criatividade)
-    humor_atual = definir_humor_do_oraculo()
-    st.markdown(f"Status do Oráculo (agora): **{humor_atual}**")
+    # Criação do Gráfico de Barras (Visualização Jurídica)
+    fig, ax = plt.subplots(figsize=(10, 5))
+    df_frequencia_top10 = df_frequencia.head(10)
+    
+    # Escolhe cores para destaque: o top 1 é diferente
+    cores = ['#2E86C1'] * len(df_frequencia_top10)
+    cores[0] = '#E74C3C' # Destaque vermelho para o termo mais frequente
 
+    ax.bar(df_frequencia_top10['Termo'], df_frequencia_top10['Frequência'], color=cores)
+    
+    ax.set_title(f'Top 10 Termos em {area_selecionada}', fontsize=14)
+    ax.set_ylabel('Contagem (Simulada)')
+    ax.set_xlabel('Termo Jurídico')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
+    st.pyplot(fig)
 
-# Lógica de exibição no Coluna 2
-with col2:
-    if 'consultado' in st.session_state and st.session_state['consultado']:
-        nome_usuario = st.session_state['nome'].title()
-        
-        # 1. Determina o humor e as listas de citação/autor
-        humor = definir_humor_do_oraculo()
-        
-        citacao_selecionada = random.choice(DADOS_CITACOES[humor])
-        autor_selecionado = random.choice(AUTORES_IRÔNICOS[humor])
-        
-        # 2. Exibição Dinâmica (muda conforme o humor)
-        if humor == "IRRITADO":
-            st.error(f"**ALERTA! O Oráculo está de mau humor ({humor})!**")
-            st.subheader(f"Resposta curta e grossa para **{nome_usuario}**:")
-        elif humor == "SABIO":
-            st.success(f"**O Oráculo está sereno ({humor}).**")
-            st.subheader(f"Uma pepita de ouro para **{nome_usuario}**:")
-        else: # FILOSOFICO
-            st.warning(f"**O Oráculo está reflexivo ({humor}).**")
-            st.subheader(f"Pondere sobre isso, **{nome_usuario}**:")
+with col_data:
+    st.subheader("Dados Detalhados")
+    # Tabela de dados brutos
+    st.dataframe(df_frequencia, use_container_width=True, hide_index=True)
 
-        st.markdown("---") 
-        
-        # 3. Exibe a citação
-        st.markdown(f'<h1 style="text-align: center; color: #2E86C1;">"{citacao_selecionada}"</h1>', unsafe_allow_html=True)
-        st.markdown(f'<p style="text-align: right; font-size: 1.2em; color: grey;">— <i>{autor_selecionado}</i></p>', unsafe_allow_html=True)
-
-        st.snow() # Efeito visual sutil ou st.balloons()
-        
-        # Limpa o estado para permitir nova consulta
-        st.session_state['consultado'] = False
+st.markdown("---")
+st.caption("Nota: Os dados de frequência são gerados por um modelo de simulação para fins de demonstração.")
