@@ -4,178 +4,145 @@ st.title("Saudação")
 nome = st.text_input("Digite seu nome")
 if nome:
    st.write(nome.upper())
-import random
 import streamlit as st
 import pandas as pd
 import random
-from datetime import datetime, timedelta
-# Biblioteca para Análise de Sentimento (Text Processing)
-from textblob import TextBlob 
-# Biblioteca para Visualização (Alternativa simples ao Altair/Plotly)
-import matplotlib.pyplot as plt 
+import matplotlib.pyplot as plt
 
-# --- Dicionários de Dados (Mantendo a Estrutura) ---
+# --- DADOS DO SISTEMA: TAREFAS E SEUS ATRIBUTOS ---
 
-DADOS_CITACOES = {
-    "SABIO": [
-        "A simplicidade é o último grau de sofisticação.",
-        "A vida é o que acontece enquanto você está ocupado fazendo outros planos.",
-        "A verdadeira sabedoria está em reconhecer a própria ignorância."
-    ],
-    "IRRITADO": [
-        "Por que você está me incomodando agora? Volte mais tarde.",
-        "Se o seu problema tem solução, pare de se preocupar; se não tem, de que adianta?",
-        "Este esforço não vale o tempo que gastamos aqui."
-    ],
-    "FILOSOFICO": [
-        "Somos todos prisioneiros de nosso próprio modo de ver as coisas.",
-        "Existir é resistir.",
-        "Não tentes ser bem-sucedido, tenta antes ser um valor."
-    ]
+# Cada tarefa é mapeada para o nível que ela exige de cada "humor" (0 a 10)
+# A soma dos humores não precisa ser 10, mas indica a intensidade da tarefa
+DADOS_TAREFAS = {
+    'Revisão de Código Detalhada': {'Analitico': 9, 'Criatividade': 2, 'Organizacao': 7},
+    'Brainstorming de Novo Recurso': {'Analitico': 4, 'Criatividade': 10, 'Organizacao': 3},
+    'Organização de Documentação Técnica': {'Analitico': 5, 'Criatividade': 1, 'Organizacao': 10},
+    'Desenvolvimento de Landing Page (Design)': {'Analitico': 3, 'Criatividade': 9, 'Organizacao': 5},
+    'Debugging de Erro Crítico': {'Analitico': 10, 'Criatividade': 1, 'Organizacao': 6},
+    'Preparação de Relatório Semanal': {'Analitico': 7, 'Criatividade': 2, 'Organizacao': 9},
+    'Leitura e Pesquisa de Mercado': {'Analitico': 8, 'Criatividade': 4, 'Organizacao': 4},
 }
 
-AUTORES_IRÔNICOS = {
-    "SABIO": ["Um Esquilo Meditando", "O Café que Finalmente Aqueceu"],
-    "IRRITADO": ["O Espírito da Segunda-feira às 8h", "Um Desenvolvedor que Esqueceu de Commitar"],
-    "FILOSOFICO": ["A Última Fatia de Pizza", "Uma Meia Solitária na Lavanderia"]
-}
+# Criando um DataFrame para facilitar o manuseio e a análise
+df_tarefas = pd.DataFrame.from_dict(DADOS_TAREFAS, orient='index')
+df_tarefas.index.name = 'Tarefa'
 
-HUMOR_MAP = {"SABIO": 1, "FILOSOFICO": 0, "IRRITADO": -1}
-
-# --- FUNÇÕES COMPLEXAS ---
+# --- FUNÇÃO COMPLEXA: SIMULAÇÃO DE POPULARIDADE HISTÓRICA ---
 
 @st.cache_data
-def gerar_dados_historicos(dias=30):
-    """
-    Simula 30 dias de interações do Oráculo.
-    Isso substitui um banco de dados real.
-    """
-    dados = []
-    data_fim = datetime.now().date()
-    
-    for i in range(dias):
-        data = data_fim - timedelta(days=dias - 1 - i)
-        
-        # Simula uma regra de humor ligeiramente complexa
-        if data.weekday() in [5, 6]: # Fim de semana é mais suave
-            humor_gerado = random.choice(["SABIO", "FILOSOFICO"])
-        elif data.day % 7 == 0: # Uma vez por semana fica irritado
-            humor_gerado = "IRRITADO"
-        else:
-            humor_gerado = random.choice(["SABIO", "FILOSOFICO", "IRRITADO"])
-            
-        citacao_gerada = random.choice(DADOS_CITACOES[humor_gerado])
-        
-        # Análise de Sentimento (Complexidade de Processamento de Texto)
-        blob = TextBlob(citacao_gerada)
-        sentimento = blob.sentiment.polarity
-        
-        dados.append({
-            'Data': data,
-            'Humor_Nome': humor_gerado,
-            'Humor_Valor': HUMOR_MAP[humor_gerado],
-            'Citacao': citacao_gerada,
-            'Sentimento': sentimento
-        })
-    
-    # Cria o DataFrame para análise
-    df = pd.DataFrame(dados)
-    return df
+def simular_popularidade():
+    """Simula o histórico de popularidade de cada tarefa."""
+    # Gera um fator de popularidade aleatório (para simular interações passadas)
+    popularidade = {}
+    for tarefa in df_tarefas.index:
+        popularidade[tarefa] = random.randint(10, 100)
+    return pd.Series(popularidade, name='Popularidade')
 
-def gerar_previsao(df_historico):
-    """
-    Faz uma 'previsão' simples do humor de amanhã
-    baseada na média do sentimento dos últimos 7 dias.
-    """
-    df_ultimos_7 = df_historico.tail(7)
-    sentimento_medio = df_ultimos_7['Sentimento'].mean()
+df_popularidade = simular_popularidade()
 
-    # Lógica de Previsão
-    if sentimento_medio > 0.1:
-        return "SABIO (Positivo: >0.1)", "A tendência aponta para um dia de calma e sabedoria."
-    elif sentimento_medio < -0.1:
-        return "IRRITADO (Negativo: <-0.1)", "Cuidado, a irritação está no ar. Evite perguntas complexas."
-    else:
-        return "FILOSOFICO (Neutro)", "O dia será de ponderação. O Oráculo estará em modo reflexivo."
+# --- FUNÇÃO COMPLEXA: ALGORITMO DE RECOMENDAÇÃO PONDERADA ---
+
+def calcular_afinidade(df_tarefas_com_popularidade, pesos_usuario):
+    """
+    Calcula a pontuação de afinidade de cada tarefa.
+
+    Pontuação = (Afinidade_Humor * Peso_Humor) + (Fator_Popularidade * Peso_Extra)
+    """
+    df = df_tarefas_com_popularidade.copy()
+    
+    # 1. CÁLCULO DO FATOR DE AFINIDADE DO HUMOR (baseado na preferência do usuário)
+    # Exemplo: (Tarefa.Analitico * Peso_Usuario.Analitico) + (Tarefa.Criatividade * Peso_Usuario.Criatividade)
+    df['Afinidade_Humor'] = (
+        df['Analitico'] * pesos_usuario['Analitico'] +
+        df['Criatividade'] * pesos_usuario['Criatividade'] +
+        df['Organizacao'] * pesos_usuario['Organizacao']
+    )
+    
+    # 2. NORMALIZAÇÃO DA POPULARIDADE (para que não domine a pontuação)
+    max_pop = df['Popularidade'].max()
+    df['Popularidade_Normalizada'] = df['Popularidade'] / max_pop
+    
+    # 3. PONTUAÇÃO FINAL PONDERADA
+    # O peso de 0.2 é um fator fixo para garantir que a preferência do usuário (Afinidade_Humor) 
+    # seja mais importante que a popularidade histórica.
+    df['Pontuacao_Final'] = (df['Afinidade_Humor'] * 0.8) + (df['Popularidade_Normalizada'] * 0.2 * df['Afinidade_Humor'].max())
+    
+    return df.sort_values(by='Pontuacao_Final', ascending=False)
 
 # --- ESTRUTURA E LAYOUT STREAMLIT ---
 
 st.set_page_config(
-    page_title="Streamlit Time-Traveler 🔮",
-    page_icon="🕰️",
+    page_title="Oráculo de Afinidade e Tarefas ⚙️",
+    page_icon="🧠",
     layout="wide"
 )
 
-# Geração de dados e cache
-df_historico = gerar_dados_historicos()
+st.title("⚙️ Oráculo de Afinidade: Encontre Sua Tarefa Ideal")
+st.markdown("Ajuste seu humor atual para descobrir qual tarefa tem mais afinidade com você.")
 
-st.title("🕰️ Oráculo Time-Traveler: Análise e Previsão")
-st.markdown("Consulte o humor passado, presente e futuro do nosso Oráculo Temporal.")
+# Combina os dados de atributos da tarefa com a popularidade simulada
+df_tarefas_completo = df_tarefas.join(df_popularidade)
 
-tab_atual, tab_historico, tab_previsao = st.tabs(["**Consulta Atual**", "**Análise Histórica**", "**Previsão Futura**"])
+# --- SIDEBAR: CONTROLES DE AFINIDADE DO USUÁRIO ---
+with st.sidebar:
+    st.header("Seu Estado Mental (Pesos)")
+    st.markdown("Defina sua afinidade com os humores de trabalho (0 = Baixo, 10 = Alto).")
 
-# --- TAB 1: CONSULTA ATUAL ---
-with tab_atual:
-    col_input, col_output = st.columns([1, 2])
-    
-    with col_input:
-        st.subheader("Fale com o Oráculo (Agora)")
-        nome = st.text_input("Seu nome:", max_chars=30)
-        
-        if st.button("Gerar Citação do Dia", use_container_width=True):
-            if nome:
-                # Usa a lógica de humor do Oráculo anterior (mais simples para o HOJE)
-                # O humor do Oráculo 'hoje' é baseado na média de Sentimento Histórico
-                humor_base = df_historico['Humor_Nome'].mode().iloc[0] # Ex: o humor mais frequente
-                
-                citacao = random.choice(DADOS_CITACOES[humor_base])
-                autor = random.choice(AUTORES_IRÔNICOS[humor_base])
-                
-                with col_output:
-                    st.success(f"**Oráculo em modo '{humor_base}'**")
-                    st.subheader(f"Para você, {nome.title()}:")
-                    st.markdown(f'<h1 style="text-align: center; color: #1E8449;">"{citacao}"</h1>', unsafe_allow_html=True)
-                    st.markdown(f'<p style="text-align: right; font-size: 1.2em; color: grey;">— <i>{autor}</i></p>', unsafe_allow_html=True)
-                    st.balloons()
-            else:
-                st.warning("Preencha seu nome.")
+    # Sliders para definir os pesos do usuário (Variável de Entrada Complexa)
+    peso_analitico = st.slider('Foco Analítico / Racional', 0, 10, 5)
+    peso_criatividade = st.slider('Criatividade / Inovação', 0, 10, 5)
+    peso_organizacao = st.slider('Organização / Detalhismo', 0, 10, 5)
 
-# --- TAB 2: ANÁLISE HISTÓRICA ---
-with tab_historico:
-    st.header("Gráfico de Humor Histórico (Últimos 30 Dias)")
-    st.markdown("Valor do Humor: `1` (Sábio), `0` (Filosófico), `-1` (Irritado).")
-    
-    # 1. Gráfico de Linha (Visualização de Dados)
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(df_historico['Data'], df_historico['Humor_Valor'], marker='o', linestyle='-', color='teal')
-    ax.set_title('Flutuação Diária do Humor do Oráculo')
-    ax.set_ylabel('Valor do Humor')
-    ax.set_xlabel('Data')
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
-    
-    # 2. Tabela de Dados (Complexidade de UI - Tabela Interativa)
-    st.subheader("Registro de Citações e Sentimentos")
-    st.dataframe(df_historico[['Data', 'Humor_Nome', 'Citacao', 'Sentimento']].sort_values(by='Data', ascending=False), 
-                 use_container_width=True)
+    pesos_usuario = {
+        'Analitico': peso_analitico,
+        'Criatividade': peso_criatividade,
+        'Organizacao': peso_organizacao,
+    }
 
-# --- TAB 3: PREVISÃO FUTURA ---
-with tab_previsao:
-    st.header(f"Previsão para {datetime.now().date() + timedelta(days=1)}")
-    
-    # Executa a função de previsão
-    humor_previsto, detalhe = gerar_previsao(df_historico)
-    
-    col_previsao_1, col_previsao_2 = st.columns([1, 3])
-    
-    with col_previsao_1:
-        st.metric(label="Humor Previsto", value=humor_previsto.split(' ')[0], delta=humor_previsto.split(' ')[1] if len(humor_previsto.split(' ')) > 1 else None)
+    # Visualização da Distribuição dos Pesos (Gráfico de Pizza)
+    st.subheader("Distribuição do Seu Humor")
+    if sum(pesos_usuario.values()) > 0:
+        fig, ax = plt.subplots()
+        labels = pesos_usuario.keys()
+        sizes = pesos_usuario.values()
+        ax.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=90, colors=['#F4D03F', '#5DADE2', '#58D68D'])
+        ax.axis('equal') # Garante que o gráfico de pizza seja circular
+        st.pyplot(fig)
+    else:
+        st.info("Ajuste os sliders para ver a distribuição!")
 
-    with col_previsao_2:
-        st.subheader("Análise da Tendência")
-        st.info(detalhe)
-        st.markdown(f"*(Baseado na média de sentimento dos **últimos 7 dias**.)*")
-        
-    st.markdown("---")
-    st.dataframe(df_historico.tail(7)[['Data', 'Sentimento']].style.background_gradient(cmap='RdYlGn', subset=['Sentimento']), 
-                 use_container_width=True)
+
+# --- CORPO PRINCIPAL: RESULTADOS E RECOMENDAÇÃO ---
+st.header("Resultado da Análise de Afinidade")
+
+# Executa o algoritmo de recomendação
+df_resultado = calcular_afinidade(df_tarefas_completo, pesos_usuario)
+
+# 1. A Tarefa Mais Recomendada (Highlight)
+tarefa_top = df_resultado.iloc[0]
+
+st.info(f"""
+### 🥇 RECOMENDAÇÃO TOP: {tarefa_top.name}
+**Pontuação de Afinidade:** {tarefa_top['Pontuacao_Final']:.2f}
+> Esta tarefa alinha-se perfeitamente com o seu foco em **Analítico ({tarefa_top['Analitico']}), Criatividade ({tarefa_top['Criatividade']}), e Organização ({tarefa_top['Organizacao']})**.
+""")
+
+st.markdown("---")
+
+# 2. Tabela Detalhada com os Resultados
+st.subheader("Ranking Completo das Tarefas")
+st.markdown("A pontuação final é uma combinação do **Seu Humor** e da **Popularidade Histórica**.")
+
+# Exibe o DataFrame de resultados, destacando a coluna de Pontuação Final
+st.dataframe(
+    df_resultado[['Analitico', 'Criatividade', 'Organizacao', 'Popularidade', 'Pontuacao_Final']].style.background_gradient(
+        cmap='viridis', subset=['Pontuacao_Final']
+    ).format(
+        {'Popularidade': '{:.0f}', 'Pontuacao_Final': '{:.2f}'}
+    ),
+    use_container_width=True
+)
+
+st.markdown("---")
+st.caption("Desenvolvido com Python, Streamlit e um algoritmo de afinidade ponderada.")
+
