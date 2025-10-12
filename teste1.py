@@ -1,4 +1,5 @@
 
+import streamlit as st
 import random
 
 # --- Configurações da Página ---
