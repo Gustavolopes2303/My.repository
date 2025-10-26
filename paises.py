@@ -1,108 +1,102 @@
 import streamlit as st
+import re  # Biblioteca padrão do Python para Expressões Regulares (busca e substituição de texto)
 import pandas as pd
-from pypdf import PdfReader
-from datetime import datetime
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(
-    page_title="Metadados Forenses de Documentos",
-    page_icon="🔍",
-    layout="centered"
-)
+# --- LISTA DE TERMOS JURÍDICOS (O "Coração" do Projeto) ---
+# Você pode expandir ou mudar essa lista à vontade!
+TERMOS_CHAVE = [
+    "Petição Inicial",
+    "Contrato Social",
+    "Acórdão",
+    "Jurisprudência",
+    "Requerido",
+    "Requerente",
+    "Exceção",
+    "Recurso",
+    "Sentença",
+    "Agravo",
+    "Código Civil",
+    "Código de Processo Civil",
+    "Tribunal de Justiça"
+]
 
-# --- FUNÇÃO DE EXTRAÇÃO DE METADADOS ---
-def extrair_metadados_pdf(uploaded_file):
-    """Extrai metadados essenciais de um PDF."""
-    try:
-        # Abrindo o arquivo PDF
-        reader = PdfReader(uploaded_file)
+# --- FUNÇÃO DE PROCESSAMENTO DE TEXTO ---
+def destacar_termos(texto, termos):
+    """Percorre o texto e formata os termos chave com HTML para destaque."""
+    
+    # 1. Cria um dicionário para contar a frequência dos termos
+    contagem = {}
+    
+    # 2. Prepara o estilo de destaque (HTML/Markdown com cor vermelha)
+    # Usamos re.escape para garantir que termos com caracteres especiais funcionem (ex: "Art. 5º")
+    for termo in termos:
+        # A expressão regular ignora maiúsculas/minúsculas (re.IGNORECASE)
+        # e usa boundary \b para pegar a palavra inteira (evita que "Réu" destaque em "Reunião")
         
-        # Acessando o dicionário de metadados
-        metadata = reader.metadata
+        # Cria a tag de destaque: **<span style="color:red;">TERMO</span>**
+        estilo_destaque = f'**<span style="color:red;">{termo.upper()}</span>**'
         
-        # Formatando as datas
-        def formatar_data(data_obj):
-            if data_obj:
-                # O formato do pypdf é complexo, mas convertemos para um formato amigável.
-                if isinstance(data_obj, datetime):
-                    return data_obj.strftime("%d/%m/%Y %H:%M:%S")
-                return str(data_obj).split('+')[0].replace('D:','')
-            return "Não Encontrado"
+        # Expressão regular para encontrar o termo
+        pattern = r'\b' + re.escape(termo) + r'\b'
+        
+        # Encontra todas as ocorrências para a contagem
+        ocorrencias = re.findall(pattern, texto, re.IGNORECASE)
+        contagem[termo] = len(ocorrencias)
+        
+        # Substitui todas as ocorrências no texto pela versão formatada em vermelho
+        texto = re.sub(pattern, estilo_destaque, texto, flags=re.IGNORECASE)
+        
+    return texto, contagem
 
-        # Dicionário de resultados
-        dados = {
-            "Metadado": [
-                "Autor/Criador", 
-                "Software Produtor", 
-                "Data de Criação Original", 
-                "Data da Última Modificação",
-                "Número de Páginas"
-            ],
-            "Valor Encontrado": [
-                metadata.author or metadata.creator or "Desconhecido",
-                metadata.producer or "Desconhecido",
-                formatar_data(metadata.creation_date),
-                formatar_data(metadata.modification_date),
-                len(reader.pages)
-            ]
-        }
-        
-        df = pd.DataFrame(dados)
-        return df, metadata.producer
-    except Exception as e:
-        st.error(f"Erro ao processar o arquivo. Certifique-se de que é um PDF válido. Erro: {e}")
-        return None, None
 
 # --- INTERFACE STREAMLIT ---
 
-st.title("🔍 Metadados Forenses de Documentos")
-st.markdown("## Scanner de Informações Ocultas (LegalTech)")
-st.caption("Faça o upload de um arquivo PDF para analisar dados como autor original, software de criação e histórico de modificação. Uma ferramenta simples que gera *insights* valiosos em processos.")
-
-uploaded_file = st.file_uploader(
-    "Carregar Arquivo PDF (.pdf)", 
-    type=["pdf"],
-    accept_multiple_files=False 
+st.set_page_config(
+    page_title="Detector de Termos Jurídicos Chave",
+    page_icon="🔎",
+    layout="wide"
 )
 
-if uploaded_file is not None:
-    st.success("Arquivo carregado com sucesso!")
+st.title("🔎 Detector de Termos Jurídicos Chave")
+st.markdown("### Ferramenta de Análise Rápida de Documentos (LegalTech)")
+st.caption("Cole um texto jurídico (petição, trecho de lei) para destacar instantaneamente os termos mais relevantes para a sua área.")
+
+# 1. Área de texto para o usuário colar o documento
+texto_entrada = st.text_area(
+    "Cole seu texto jurídico aqui:",
+    height=400,
+    placeholder="Ex: 'O réu apresentou Petição Inicial com Recurso contra a Sentença do Tribunal de Justiça, alegando violação do Código Civil...'"
+)
+
+# 2. Botão para iniciar a análise
+if st.button("Analisar Documento e Destacar Termos", type="primary"):
     
-    # Processamento e Extração
-    df_metadados, produtor = extrair_metadados_pdf(uploaded_file)
-    
-    if df_metadados is not None:
+    if not texto_entrada:
+        st.warning("Por favor, cole algum texto para iniciar a análise.")
+    else:
+        # Chama a função de destaque
+        texto_destacado, contagem_termos = destacar_termos(texto_entrada, TERMOS_CHAVE)
         
-        # --- EXIBIÇÃO CRIATIVA E INTELIGENTE ---
-        st.subheader("📋 Relatório de Análise Forense")
-        
-        # Destaque do Software Produtor (O que faz parecer inteligente)
-        st.info(f"O Software Produtor do documento é: **{produtor or 'Não Registrado'}**")
-        
-        # Exibição dos Metadados em uma Tabela Elegante
-        # Usa Markdown/HTML para centralizar e dar destaque visual
-        st.dataframe(df_metadados.set_index('Metadado'), use_container_width=True)
-        
-        # --- ANÁLISE BÔNUS DE TIMELINE ---
-        
-        data_criacao_str = df_metadados.loc[df_metadados['Metadado'] == 'Data de Criação Original', 'Valor Encontrado'].iloc[0]
-        data_modificacao_str = df_metadados.loc[df_metadados['Metadado'] == 'Data da Última Modificação', 'Valor Encontrado'].iloc[0]
-        
-        # Tenta calcular a diferença
-        try:
-            data_criacao = datetime.strptime(data_criacao_str.split(' ')[0], "%d/%m/%Y")
-            data_modificacao = datetime.strptime(data_modificacao_str.split(' ')[0], "%d/%m/%Y")
-            dias_entre = (data_modificacao - data_criacao).days
+        # --- COLUNA LATERAL (Contador, o que parece inteligente) ---
+        with st.sidebar:
+            st.header("📊 Frequência de Termos")
             
-            st.markdown("---")
-            st.subheader("⌛ Timeline do Documento")
+            # Converte a contagem para um DataFrame e filtra apenas os termos que apareceram
+            df_contagem = pd.DataFrame(list(contagem_termos.items()), columns=['Termo', 'Ocorrências'])
+            df_contagem = df_contagem[df_contagem['Ocorrências'] > 0]
             
-            # Métrica que parece difícil de calcular
-            st.metric(
-                label="Tempo entre Criação e Última Modificação", 
-                value=f"{dias_entre} dias",
-                help="Indica o período em que o documento pode ter sido revisado ativamente."
-            )
-            
-        except:
-            st.warning("Não foi possível calcular o tempo de vida (datas ausentes ou incompletas).")
+            if not df_contagem.empty:
+                # Exibe a tabela de forma simples e compacta
+                st.dataframe(df_contagem, hide_index=True, use_container_width=True)
+            else:
+                st.info("Nenhum termo chave foi detectado no texto.")
+
+        # --- COLUNA PRINCIPAL (O Efeito Visual Impactante) ---
+        st.subheader("Documento com Destaques:")
+        
+        # st.markdown com a flag unsafe_allow_html é OBRIGATÓRIO 
+        # para que o Streamlit exiba as cores e formatações HTML injetadas.
+        st.markdown(texto_destacado, unsafe_allow_html=True)
+
+st.markdown("---")
+st.caption("Desenvolvido com Python e Streamlit.")
